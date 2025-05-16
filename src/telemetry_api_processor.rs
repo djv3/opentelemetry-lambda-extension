@@ -29,21 +29,15 @@ impl Service<Vec<LambdaTelemetry>> for TelemetryApiProcessor {
     fn call(&mut self, req: Vec<LambdaTelemetry>) -> Self::Future {
         let processor = self.processor.clone();
 
-        // Create and return a pinned boxed future
         Box::pin(async move {
-            // Process each telemetry event
             for event in req {
-                // Send to the channel, handle potential errors
                 if let Err(e) = processor.send(event).await {
-                    // Convert send error to your Error type
                     return Err(Error::from(format!(
                         "Failed to send telemetry event: {}",
                         e
                     )));
                 }
             }
-
-            // Return success
             Ok(())
         })
     }
