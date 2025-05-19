@@ -1,16 +1,67 @@
 use std::{future::Future, pin::Pin};
 
-use lambda_extension::{Error, LambdaTelemetry, Service};
+use lambda_extension::{Error, LambdaTelemetry, LambdaTelemetryRecord, Service};
+use lambda_extension::{
+    InitPhase, InitReportMetrics, InitType, ReportMetrics, RuntimeDoneMetrics, Span, Status,
+    TraceContext,
+};
+use opentelemetry_proto::tonic::{
+    logs::v1::ScopeLogs, metrics::v1::ScopeMetrics, trace::v1::ScopeSpans,
+};
 use tokio::sync::mpsc::Sender;
 
 #[derive(Clone)]
 pub struct TelemetryApiProcessor {
-    processor: Sender<LambdaTelemetry>,
+    logs_consumer: Sender<ScopeLogs>,
+    metrics_consumer: Sender<ScopeMetrics>,
+    traces_consumer: Sender<ScopeSpans>,
 }
 
 impl TelemetryApiProcessor {
-    pub fn new(processor: Sender<LambdaTelemetry>) -> Self {
-        Self { processor }
+    pub fn new(
+        logs_consumer: Sender<ScopeLogs>,
+        metrics_consumer: Sender<ScopeMetrics>,
+        traces_consumer: Sender<ScopeSpans>,
+    ) -> Self {
+        Self {
+            logs_consumer,
+            metrics_consumer,
+            traces_consumer,
+        }
+    }
+
+    async fn handle_init_report(
+        &self,
+        initialization_type: InitType,
+        phase: InitPhase,
+        metrics: InitReportMetrics,
+        spans: Vec<Span>,
+    ) -> () {
+        todo!("oops");
+    }
+
+    async fn handle_runtime_done(
+        &self,
+        request_id: String,
+        status: Status,
+        error_type: Option<String>,
+        metrics: Option<RuntimeDoneMetrics>,
+        spans: Vec<Span>,
+        tracing: Option<TraceContext>,
+    ) -> () {
+        todo!("oops");
+    }
+
+    async fn handle_platform_report(
+        &self,
+        request_id: String,
+        status: Status,
+        error_type: Option<String>,
+        metrics: ReportMetrics,
+        spans: Vec<Span>,
+        tracing: Option<TraceContext>,
+    ) -> () {
+        todo!("oops");
     }
 }
 
@@ -27,15 +78,47 @@ impl Service<Vec<LambdaTelemetry>> for TelemetryApiProcessor {
     }
 
     fn call(&mut self, req: Vec<LambdaTelemetry>) -> Self::Future {
-        let processor = self.processor.clone();
+        let this = self.clone();
 
         Box::pin(async move {
             for event in req {
-                if let Err(e) = processor.send(event).await {
-                    return Err(Error::from(format!(
-                        "Failed to send telemetry event: {}",
-                        e
-                    )));
+                match event.record {
+                    LambdaTelemetryRecord::PlatformInitReport {
+                        initialization_type,
+                        phase,
+                        metrics,
+                        spans,
+                    } => {
+                        this.handle_init_report(initialization_type, phase, metrics, spans)
+                            .await
+                    }
+                    LambdaTelemetryRecord::PlatformRuntimeDone {
+                        request_id,
+                        status,
+                        error_type,
+                        metrics,
+                        spans,
+                        tracing,
+                    } => {
+                        this.handle_runtime_done(
+                            request_id, status, error_type, metrics, spans, tracing,
+                        )
+                        .await
+                    }
+                    LambdaTelemetryRecord::PlatformReport {
+                        request_id,
+                        status,
+                        error_type,
+                        metrics,
+                        spans,
+                        tracing,
+                    } => {
+                        this.handle_platform_report(
+                            request_id, status, error_type, metrics, spans, tracing,
+                        )
+                        .await
+                    }
+                    _ => (),
                 }
             }
             Ok(())
