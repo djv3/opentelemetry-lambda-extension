@@ -1,16 +1,18 @@
 use std::{future::Future, pin::Pin};
 
 use lambda_extension::{Error, LambdaTelemetry, Service};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc;
+
+use crate::messages::ScopedTelemetry;
 
 #[derive(Clone)]
 pub struct TelemetryApiProcessor {
-    processor: Sender<LambdaTelemetry>,
+    pipeline_channel: mpsc::UnboundedSender<ScopedTelemetry>,
 }
 
 impl TelemetryApiProcessor {
-    pub fn new(processor: Sender<LambdaTelemetry>) -> Self {
-        Self { processor }
+    pub fn new(pipeline_channel: mpsc::UnboundedSender<ScopedTelemetry>) -> Self {
+        Self { pipeline_channel }
     }
 }
 
@@ -27,16 +29,11 @@ impl Service<Vec<LambdaTelemetry>> for TelemetryApiProcessor {
     }
 
     fn call(&mut self, req: Vec<LambdaTelemetry>) -> Self::Future {
-        let processor = self.processor.clone();
+        let pipeline_channel = self.pipeline_channel.clone();
 
         Box::pin(async move {
             for event in req {
-                if let Err(e) = processor.send(event).await {
-                    return Err(Error::from(format!(
-                        "Failed to send telemetry event: {}",
-                        e
-                    )));
-                }
+                todo!("Process telemetry event: {:?}", event);
             }
             Ok(())
         })
