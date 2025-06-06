@@ -1,5 +1,5 @@
 use lambda_extension::tracing;
-use opentelemetry_lambda_extension::{exporter::JsonExporter, PipelineBuilder, Result, Processor};
+use opentelemetry_lambda_extension::{exporter::JsonExporter, PipelineBuilder, Processor, Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -8,18 +8,10 @@ async fn main() -> Result<()> {
 
     let json = JsonExporter;
 
-    let cw_processors: Vec<Box<dyn Processor>> = vec![];
-
-    let (cloudwatch, cw_sender) = PipelineBuilder::new()
-        .with_cancellation_token(ct.clone())
-        .with_exporter(json.clone())
-        .with_processors(vec![])
-        .build();
-
     let (pipeline, _) = PipelineBuilder::new()
+        .with_receivers(vec![])
         .with_processors(vec![])
-        .with_exporter(json)
-        .with_failover_channel(cw_sender)
+        .with_exporters(vec![])
         .with_cancellation_token(ct.clone())
         .build();
 

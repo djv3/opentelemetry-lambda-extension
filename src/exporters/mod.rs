@@ -1,4 +1,4 @@
-use crate::{Result, messages::ScopedTelemetry};
+use crate::{events::ScopedTelemetry, Result};
 
 mod json;
 pub use json::JsonExporter;

@@ -1,4 +1,4 @@
-use crate::messages::{ApplicationEvent, ShutdownReason};
+use crate::events::{ApplicationEvent, ShutdownReason};
 use lambda_extension::{tracing, Error, LambdaEvent, NextEvent, Service};
 use std::{future::Future, pin::Pin};
 use tokio::sync::mpsc;

@@ -3,7 +3,7 @@ use std::{future::Future, pin::Pin};
 use lambda_extension::{Error, LambdaTelemetry, Service};
 use tokio::sync::mpsc;
 
-use crate::messages::ScopedTelemetry;
+use crate::events::ScopedTelemetry;
 
 #[derive(Clone)]
 pub struct TelemetryApiProcessor {

@@ -1,5 +1,5 @@
 use super::TelemetryPipeline;
-use crate::{exporter::Exporter, messages::ScopedTelemetry, Processor, Receiver, Result};
+use crate::{events::ScopedTelemetry, exporter::Exporter, Processor, Receiver, Result};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -15,10 +15,9 @@ pub struct NoCancellationToken;
 pub struct HasCancellationToken;
 
 pub struct PipelineBuilder<R, P, E, FC, CT> {
-    receiver: Option<Box<dyn Receiver>>,
-    receiver_channel: Option<mpsc::UnboundedReceiver<ScopedTelemetry>>,
+    receivers: Option<Vec<Box<dyn Receiver>>>,
     processors: Option<Vec<Box<dyn Processor>>>,
-    exporter: Option<Box<dyn Exporter>>,
+    exporters: Option<Vec<Box<dyn Exporter>>>,
     failover_sender: Option<mpsc::UnboundedSender<ScopedTelemetry>>,
     cancellation_token: Option<CancellationToken>,
     _phantom: std::marker::PhantomData<(R, P, E, FC, CT)>,
@@ -27,10 +26,9 @@ pub struct PipelineBuilder<R, P, E, FC, CT> {
 impl PipelineBuilder<NoReceiver, NoProcessors, NoExporter, NoFailoverChannel, NoCancellationToken> {
     pub fn new() -> Self {
         Self {
-            receiver: None,
-            receiver_channel: None,
+            receivers: None,
             processors: None,
-            exporter: None,
+            exporters: None,
             failover_sender: None,
             cancellation_token: None,
             _phantom: std::marker::PhantomData,
@@ -39,15 +37,14 @@ impl PipelineBuilder<NoReceiver, NoProcessors, NoExporter, NoFailoverChannel, No
 }
 
 impl<P, E, FC, CT> PipelineBuilder<NoReceiver, P, E, FC, CT> {
-    pub fn with_receiver<T: Receiver + 'static>(
-        mut self,
-        receiver: T,
+    pub fn with_receivers(
+        self,
+        receivers: Vec<Box<dyn Receiver>>,
     ) -> PipelineBuilder<HasReceiver, P, E, FC, CT> {
         PipelineBuilder {
-            receiver: Some(Box::new(receiver)),
-            receiver_channel: self.receiver_channel,
+            receivers: Some(receivers),
             processors: self.processors,
-            exporter: self.exporter,
+            exporters: self.exporters,
             failover_sender: self.failover_sender,
             cancellation_token: self.cancellation_token,
             _phantom: std::marker::PhantomData,
@@ -56,20 +53,14 @@ impl<P, E, FC, CT> PipelineBuilder<NoReceiver, P, E, FC, CT> {
 }
 
 impl<R, E, FC, CT> PipelineBuilder<R, NoProcessors, E, FC, CT> {
-    pub fn with_processors<F: Processor + 'static>(
-        mut self,
-        processors: Vec<F>,
+    pub fn with_processors(
+        self,
+        processors: Vec<Box<dyn Processor>>,
     ) -> PipelineBuilder<R, HasProcessors, E, FC, CT> {
-        let mut boxed_processors: Vec<Box<dyn Processor>> = Vec::new();
-        for processor in processors {
-            boxed_processors.push(Box::new(processor));
-        }
-
         PipelineBuilder {
-            receiver: self.receiver,
-            receiver_channel: self.receiver_channel,
-            processors: Some(boxed_processors),
-            exporter: self.exporter,
+            receivers: self.receivers,
+            processors: Some(processors),
+            exporters: self.exporters,
             failover_sender: self.failover_sender,
             cancellation_token: self.cancellation_token,
             _phantom: std::marker::PhantomData,
@@ -78,15 +69,14 @@ impl<R, E, FC, CT> PipelineBuilder<R, NoProcessors, E, FC, CT> {
 }
 
 impl<R, P, FC, CT> PipelineBuilder<R, P, NoExporter, FC, CT> {
-    pub fn with_exporter<T: Exporter + 'static>(
-        mut self,
-        exporter: T,
+    pub fn with_exporters(
+        self,
+        exporters: Vec<Box<dyn Exporter>>,
     ) -> PipelineBuilder<R, P, HasExporter, FC, CT> {
         PipelineBuilder {
-            receiver: self.receiver,
-            receiver_channel: self.receiver_channel,
+            receivers: self.receivers,
             processors: self.processors,
-            exporter: Some(Box::new(exporter)),
+            exporters: Some(exporters),
             failover_sender: self.failover_sender,
             cancellation_token: self.cancellation_token,
             _phantom: std::marker::PhantomData,
@@ -96,14 +86,13 @@ impl<R, P, FC, CT> PipelineBuilder<R, P, NoExporter, FC, CT> {
 
 impl<R, P, E, CT> PipelineBuilder<R, P, E, NoFailoverChannel, CT> {
     pub fn with_failover_channel(
-        mut self,
+        self,
         failover_sender: mpsc::UnboundedSender<ScopedTelemetry>,
     ) -> PipelineBuilder<R, P, E, HasFailoverChannel, CT> {
         PipelineBuilder {
-            receiver: self.receiver,
-            receiver_channel: self.receiver_channel,
+            receivers: self.receivers,
             processors: self.processors,
-            exporter: self.exporter,
+            exporters: self.exporters,
             failover_sender: Some(failover_sender),
             cancellation_token: self.cancellation_token,
             _phantom: std::marker::PhantomData,
@@ -113,24 +102,17 @@ impl<R, P, E, CT> PipelineBuilder<R, P, E, NoFailoverChannel, CT> {
 
 impl<R, P, E, FC> PipelineBuilder<R, P, E, FC, NoCancellationToken> {
     pub fn with_cancellation_token(
-        mut self,
+        self,
         cancellation_token: CancellationToken,
     ) -> PipelineBuilder<R, P, E, FC, HasCancellationToken> {
         PipelineBuilder {
-            receiver: self.receiver,
-            receiver_channel: self.receiver_channel,
+            receivers: self.receivers,
             processors: self.processors,
-            exporter: self.exporter,
+            exporters: self.exporters,
             failover_sender: self.failover_sender,
             cancellation_token: Some(cancellation_token),
             _phantom: std::marker::PhantomData,
         }
-    }
-}
-
-impl TelemetryPipeline {
-    pub fn run(self) -> Result<()> {
-        Ok(())
     }
 }
 
@@ -142,13 +124,15 @@ impl<R, FC> PipelineBuilder<R, HasProcessors, HasExporter, FC, HasCancellationTo
         let (sender_channel, receiver_channel) = mpsc::unbounded_channel::<ScopedTelemetry>();
         (
             TelemetryPipeline {
-                receiver: self.receiver,
+                receivers: self
+                    .receivers
+                    .expect("Receivers should be set, this is a bug in the type system"),
                 receiver_channel,
                 processors: self
                     .processors
                     .expect("Processors should be set, this is a bug in the type system"),
-                exporter: self
-                    .exporter
+                exporters: self
+                    .exporters
                     .expect("Exporter should be set, this is a bug in the type system"),
                 failover_sender: self.failover_sender,
                 cancellation_token: self

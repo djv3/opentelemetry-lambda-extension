@@ -1,6 +1,7 @@
+mod controller;
 mod error;
+pub mod events;
 mod exporters;
-pub mod messages;
 mod pipeline;
 mod processors;
 mod receivers;
