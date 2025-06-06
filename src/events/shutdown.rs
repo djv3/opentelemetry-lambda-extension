@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, PartialEq)]
 pub enum ShutdownReason {
     Spindown,
     Timeout,
