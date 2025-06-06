@@ -1,5 +1,5 @@
 use lambda_extension::tracing;
-use opentelemetry_lambda_extension::{exporter::JsonExporter, PipelineBuilder, Processor, Result};
+use opentelemetry_lambda_extension::{exporter::JsonExporter, PipelineBuilder, Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {

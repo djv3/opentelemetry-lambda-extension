@@ -1,5 +1,5 @@
 use super::TelemetryPipeline;
-use crate::{events::ScopedTelemetry, exporter::Exporter, Processor, Receiver, Result};
+use crate::{events::ScopedTelemetry, exporter::Exporter, Processor, Receiver};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -21,6 +21,12 @@ pub struct PipelineBuilder<R, P, E, FC, CT> {
     failover_sender: Option<mpsc::UnboundedSender<ScopedTelemetry>>,
     cancellation_token: Option<CancellationToken>,
     _phantom: std::marker::PhantomData<(R, P, E, FC, CT)>,
+}
+
+impl Default for PipelineBuilder<NoReceiver, NoProcessors, NoExporter, NoFailoverChannel, NoCancellationToken> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PipelineBuilder<NoReceiver, NoProcessors, NoExporter, NoFailoverChannel, NoCancellationToken> {

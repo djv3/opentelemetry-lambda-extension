@@ -32,16 +32,13 @@ impl Service<LambdaEvent> for EventProcessor {
         let sender = self.application_channel.clone();
 
         Box::pin(async move {
-            match event.next {
-                NextEvent::Shutdown(e) => {
-                    tracing::info!(event_type = "shutdown", ?e, "Cancelling all services");
-                    let reason = ShutdownReason::from(e.shutdown_reason);
-                    match sender.send(ApplicationEvent::Shutdown(reason)) {
-                        Ok(_) => tracing::info!("Shutdown event sent to application channel"),
-                        Err(e) => tracing::error!("Failed to send shutdown event: {}", e),
-                    }
+            if let NextEvent::Shutdown(e) = event.next {
+                tracing::info!(event_type = "shutdown", ?e, "Cancelling all services");
+                let reason = ShutdownReason::from(e.shutdown_reason);
+                match sender.send(ApplicationEvent::Shutdown(reason)) {
+                    Ok(_) => tracing::info!("Shutdown event sent to application channel"),
+                    Err(e) => tracing::error!("Failed to send shutdown event: {}", e),
                 }
-                _ => (),
             }
             Ok(())
         })

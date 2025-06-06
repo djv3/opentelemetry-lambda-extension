@@ -49,6 +49,7 @@ impl Receiver for AwsLambdaExtensionReceiver {
 
     async fn stop(&self) -> Result<()> {
         self.cancellation_token.cancel();
-        Ok(self.cancellation_token.cancelled().await)
+        self.cancellation_token.cancelled().await;
+        Ok(())
     }
 }
