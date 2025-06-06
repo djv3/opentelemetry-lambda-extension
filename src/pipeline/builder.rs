@@ -1,4 +1,4 @@
-use super::TelemetryPipeline;
+use super::Pipeline;
 use crate::{events::ScopedTelemetry, exporter::Exporter, Processor, Receiver};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -23,7 +23,15 @@ pub struct PipelineBuilder<R, P, E, FC, CT> {
     _phantom: std::marker::PhantomData<(R, P, E, FC, CT)>,
 }
 
-impl Default for PipelineBuilder<NoReceiver, NoProcessors, NoExporter, NoFailoverChannel, NoCancellationToken> {
+impl Default
+    for PipelineBuilder<
+        NoReceiver,
+        NoProcessors,
+        NoExporter,
+        NoFailoverChannel,
+        NoCancellationToken,
+    >
+{
     fn default() -> Self {
         Self::new()
     }
@@ -126,10 +134,10 @@ impl<R, P, E, FC> PipelineBuilder<R, P, E, FC, NoCancellationToken> {
 // Required: HasReceiverChannel, HasProcessors, HasExporter, HasCancellationToken
 // Optional: R (receiver), FC (failover channel)
 impl<R, FC> PipelineBuilder<R, HasProcessors, HasExporter, FC, HasCancellationToken> {
-    pub fn build(self) -> (TelemetryPipeline, mpsc::UnboundedSender<ScopedTelemetry>) {
+    pub fn build(self) -> (Pipeline, mpsc::UnboundedSender<ScopedTelemetry>) {
         let (sender_channel, receiver_channel) = mpsc::unbounded_channel::<ScopedTelemetry>();
         (
-            TelemetryPipeline {
+            Pipeline {
                 receivers: self
                     .receivers
                     .expect("Receivers should be set, this is a bug in the type system"),

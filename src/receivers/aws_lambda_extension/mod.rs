@@ -14,6 +14,7 @@ use tokio::sync::mpsc;
 mod event;
 mod telemetry_api;
 
+#[derive(Debug)]
 pub struct AwsLambdaExtensionReceiver {
     cancellation_token: CancellationToken,
     application_channel: mpsc::UnboundedSender<ApplicationEvent>,

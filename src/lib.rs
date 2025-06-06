@@ -12,7 +12,7 @@ pub mod exporter {
 
 pub use crate::{
     error::{Error, Result},
-    pipeline::PipelineBuilder,
+    pipeline::{Pipeline, PipelineBuilder},
     processors::Processor,
     receivers::Receiver,
 };
