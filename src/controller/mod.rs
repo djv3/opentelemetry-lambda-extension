@@ -35,6 +35,7 @@ impl ApplicationController {
         Self {
             resource: OnceCell::new(),
             application_event_channel,
+            cancellation_token: CancellationToken::new(),
         }
     }
 
